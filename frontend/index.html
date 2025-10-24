@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WeatherPro - Professional Weather</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+* {margin:0; padding:0; box-sizing:border-box; font-family: 'Poppins', sans-serif;}
+body {background: linear-gradient(to bottom, #e0f7fa, #ffffff); color: #333; position: relative;}
+a {text-decoration:none; color: inherit;}
+
+/* -------- Header -------- */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 40px 50px;
+    background: #00796b;
+    color: #fff;
+    flex-wrap: wrap;
+    border-bottom: 3px solid #004d40;
+}
+header .logo {font-size:28px; font-weight:700;}
+header nav a {margin-left:25px; font-weight:500; font-size:18px; transition:0.3s;}
+header nav a:hover {color:#80cbc4;}
+header .search {position: relative; margin-top: 0;}
+header input {padding: 10px 15px; border-radius: 25px; border: none; outline: none; font-size:16px;}
+header button {position: absolute; right: 0; top: 0; bottom: 0; border: none; background: #80cbc4; color: #fff; padding:0 15px; border-radius: 0 25px 25px 0; cursor:pointer; transition:0.3s;}
+header button:hover {background:#4db6ac;}
+
+/* -------- Container & Weather Sections -------- */
+.container {padding:30px 50px; max-width:1200px; margin:auto;}
+.current-weather {display:flex; justify-content:space-between; align-items:center; background:#b2dfdb; padding:30px; border-radius:20px; margin-bottom:30px; flex-wrap:wrap;}
+.current-weather .info {flex:1;}
+.current-weather .info h1 {font-size:36px;}
+.current-weather .info p {margin-top:10px; font-size:18px;}
+.current-weather .icon {font-size:80px; text-align:center; transition: transform 0.3s;}
+.hourly-forecast, .weekly-forecast {margin-bottom:30px;}
+.hourly-forecast h2, .weekly-forecast h2 {margin-bottom:15px;}
+.hourly-cards {display:flex; overflow-x:auto;}
+.hourly-cards::-webkit-scrollbar {height:6px;}
+.hourly-cards::-webkit-scrollbar-thumb {background:#00796b; border-radius:3px;}
+.hour-card {min-width:100px; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); margin-right:15px; padding:15px; border-radius:15px; text-align:center; flex-shrink:0; transition: transform 0.3s, box-shadow 0.3s;}
+.hour-card:hover {transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0,0,0,0.2);}
+.hour-card img {transition: transform 0.3s;}
+.hour-card:hover img {transform: scale(1.2);}
+.hour-card p {margin-top:5px;}
+.weekly-cards {display:flex; flex-wrap:wrap; gap:15px;}
+.week-card {flex:1 1 120px; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); padding:15px; border-radius:15px; text-align:center; transition: transform 0.3s, box-shadow 0.3s;}
+.week-card:hover {transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0,0,0,0.2);}
+.week-card img {transition: transform 0.3s;}
+.week-card:hover img {transform: scale(1.2);}
+.week-card p {margin-top:5px;}
+.map-section {margin-bottom:30px;}
+#weatherMap {width:100%; height:400px; border-radius:20px; margin-bottom:10px;}
+.map-buttons {margin-bottom:20px;}
+.map-buttons button {padding:8px 15px; margin-right:10px; border:none; border-radius:10px; background:#00796b; color:#fff; cursor:pointer; transition:0.3s;}
+.map-buttons button:hover {background:#004d40;}
+
+/* -------- Weather Alerts -------- */
+.alerts {padding:20px; border-radius:15px; margin-bottom:30px;}
+.alerts h2 {margin-bottom:10px;}
+.alert-box {padding:15px; border-radius:10px; margin-bottom:10px; color:#fff; display:flex; align-items:center; gap:10px; font-weight:500;}
+.alert-box.severe {background:#e53935;}    /* Red */
+.alert-box.warning {background:#fb8c00;}   /* Orange */
+.alert-box.caution {background:#fdd835;}   /* Yellow */
+.alert-box.info {background:#1e88e5;}      /* Blue */
+
+footer {background:#00796b; color:#fff; padding:20px 50px; display:flex; justify-content:space-between; flex-wrap:wrap;}
+footer p {margin:5px 0;}
+footer a {color:#fff; margin-left:15px; font-weight:500;}
+
+#loading {display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#00796b; color:#fff; padding:15px 25px; border-radius:15px; font-weight:600;}
+
+/* -------- Responsive -------- */
+@media(max-width:768px){
+    header {flex-direction:column; align-items:flex-start; padding:30px 20px;}
+    header .logo {margin-bottom:15px;}
+    header nav {margin-bottom:15px;}
+    .current-weather {flex-direction:column; align-items:flex-start;}
+    .current-weather .icon {margin-top:15px;}
+    .hourly-cards, .weekly-cards {flex-direction:column; gap:10px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+    <div class="logo">WeatherPro</div>
+    <nav>
+        <a href="#">Home</a>
+        <a href="#">Forecast</a>
+        <a href="#">Maps</a>
+        <a href="#">About</a>
+    </nav>
+    <div class="search">
+        <input id="cityInput" type="text" placeholder="Search city...">
+        <button id="searchBtn">Go</button>
+    </div>
+</header>
+
+<div class="container">
+
+    <div class="current-weather">
+        <div class="info">
+            <h1 id="cityName">City, Country</h1>
+            <p id="weatherDesc">Weather | 0°C</p>
+            <p id="weatherDetails">Humidity: 0% | Wind: 0 km/h</p>
+        </div>
+        <div class="icon" id="weatherIcon">☀️</div>
+    </div>
+
+    <div class="hourly-forecast">
+        <h2>Hourly Forecast</h2>
+        <div class="hourly-cards" id="hourlyCards"></div>
+    </div>
+
+    <div class="weekly-forecast">
+        <h2>Weekly Forecast</h2>
+        <div class="weekly-cards" id="weeklyCards"></div>
+    </div>
+
+    <div class="map-section">
+        <h2>Weather Map</h2>
+        <div class="map-buttons">
+            <button title="Cloud Coverage" onclick="changeLayer('clouds_new')">Clouds</button>
+            <button title="Rain/Snow Precipitation" onclick="changeLayer('precipitation_new')">Rain/Snow</button>
+            <button title="Temperature Map" onclick="changeLayer('temp_new')">Temperature</button>
+            <button title="Wind Speed" onclick="changeLayer('wind_new')">Wind</button>
+        </div>
+        <div id="weatherMap"></div>
+    </div>
+
+    <div class="alerts" id="alerts">
+        <h2>Weather Alerts</h2>
+        <p>No alerts currently.</p>
+    </div>
+
+</div>
+
+<div id="loading">Loading...</div>
+
+<footer>
+    <p>© 2025 WeatherPro</p>
+    <p>
+        <a href="#">About</a>
+        <a href="#">Contact</a>
+        <a href="#">Privacy</a>
+    </p>
+</footer>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const API_KEY = "b478d903f6307a5002415b4fa6875097";
+const searchBtn = document.getElementById('searchBtn');
+const cityInput = document.getElementById('cityInput');
+const loading = document.getElementById('loading');
+
+let map;
+let weatherLayer;
+
+cityInput.addEventListener('keypress', (e) => {
+    if(e.key === 'Enter') searchBtn.click();
+});
+
+searchBtn.addEventListener('click', () => {
+    const city = cityInput.value.trim();
+    if(city){
+        fetchWeather(city);
+        cityInput.value = '';
+    }
+});
+
+window.addEventListener('load', () => {
+    if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(position => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            fetchWeatherByCoords(lat, lon);
+            initMap(lat, lon);
+        }, () => {
+            fetchWeather('New York');
+            initMap(40.7128, -74.0060);
+        });
+    } else {
+        fetchWeather('New York');
+        initMap(40.7128, -74.0060);
+    }
+});
+
+async function fetchWeather(city){
+    loading.style.display = 'block';
+    try {
+        const response = await fetch(`http://127.0.0.1:8000/weather?city=${city}`);
+        if(!response.ok) throw new Error("City not found or API error");
+        const data = await response.json();
+        updateUI(data);
+        updateMap(data.city, data.country);
+    } catch(error){
+        alert(error.message);
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+async function fetchWeatherByCoords(lat, lon){
+    loading.style.display = 'block';
+    try {
+        const response = await fetch(`http://127.0.0.1:8000/weather?lat=${lat}&lon=${lon}`);
+        if(!response.ok) throw new Error("Location not found or API error");
+        const data = await response.json();
+        updateUI(data);
+        updateMap(lat, lon);
+    } catch(error){
+        alert(error.message);
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+function updateUI(data){
+    document.getElementById('cityName').innerText = `${data.city}, ${data.country}`;
+    document.getElementById('weatherDesc').innerText = `${capitalize(data.weather)} | ${data.temperature}°C`;
+    document.getElementById('weatherDetails').innerText = `Humidity: ${data.humidity}% | Wind: ${data.wind_speed} km/h`;
+    document.getElementById('weatherIcon').innerHTML = `<img src="${data.icon}" alt="${data.weather}" width="80">`;
+
+    const hourlyContainer = document.getElementById('hourlyCards');
+    hourlyContainer.innerHTML = '';
+    data.hourly_forecast.forEach(hour => {
+        const date = new Date(hour.time);
+        const hours = date.getHours() > 12 ? (date.getHours()-12) + ' PM' : date.getHours() + ' AM';
+        const card = document.createElement('div');
+        card.classList.add('hour-card');
+        card.innerHTML = `<p>${hours}</p><img src="${hour.icon}" width="50"><p>${hour.temperature}°C</p>`;
+        hourlyContainer.appendChild(card);
+    });
+
+    const weeklyContainer = document.getElementById('weeklyCards');
+    weeklyContainer.innerHTML = '';
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    for(let i=0;i<7;i++){
+        const card = document.createElement('div');
+        card.classList.add('week-card');
+        const temp = Math.round(data.temperature + Math.random()*3);
+        card.innerHTML = `<p>${days[i]}</p><p>☀️</p><p>${temp}°C / ${temp-3}°C</p>`;
+        weeklyContainer.appendChild(card);
+    }
+
+    // ---------- Weather Alerts ----------
+    const alertsContainer = document.getElementById('alerts');
+    if(data.alerts && data.alerts.length > 0){
+        alertsContainer.innerHTML = '<h2>Weather Alerts</h2>';
+        data.alerts.forEach(alert => {
+            // Determine alert type
+            let type = 'info';
+            if(alert.toLowerCase().includes('severe')) type = 'severe';
+            else if(alert.toLowerCase().includes('warning')) type = 'warning';
+            else if(alert.toLowerCase().includes('caution')) type = 'caution';
+            const alertBox = document.createElement('div');
+            alertBox.className = `alert-box ${type}`;
+            alertBox.innerHTML = `⚠️ ${alert}`;
+            alertsContainer.appendChild(alertBox);
+        });
+    } else {
+        alertsContainer.innerHTML = `<h2>Weather Alerts</h2><p>No alerts currently.</p>`;
+    }
+}
+
+function capitalize(str){ return str ? str.charAt(0).toUpperCase() + str.slice(1) : ''; }
+
+// ------------------ Leaflet Map ------------------
+function initMap(lat, lon){
+    map = L.map('weatherMap').setView([lat, lon], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    weatherLayer = L.tileLayer(`https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${API_KEY}`, {
+        attribution: '&copy; OpenWeatherMap',
+        opacity: 0.6
+    }).addTo(map);
+}
+
+function updateMap(lat, lon){
+    if(map) map.setView([lat, lon], 5);
+}
+
+function changeLayer(layerName){
+    if(weatherLayer) map.removeLayer(weatherLayer);
+    weatherLayer = L.tileLayer(`https://tile.openweathermap.org/map/${layerName}/{z}/{x}/{y}.png?appid=${API_KEY}`, {
+        attribution: '&copy; OpenWeatherMap',
+        opacity: 0.6
+    }).addTo(map);
+}
+</script>
+</body>
+</html>
