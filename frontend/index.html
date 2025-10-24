@@ -154,6 +154,7 @@ footer a {color:#fff; margin-left:15px; font-weight:500;}
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
 const API_KEY = "b478d903f6307a5002415b4fa6875097";
+const BASE_URL = "https://weatherpromy.onrender.com";
 const searchBtn = document.getElementById('searchBtn');
 const cityInput = document.getElementById('cityInput');
 const loading = document.getElementById('loading');
@@ -193,11 +194,11 @@ window.addEventListener('load', () => {
 async function fetchWeather(city){
     loading.style.display = 'block';
     try {
-        const response = await fetch(`http://127.0.0.1:8000/weather?city=${city}`);
+        const response = await fetch(`${BASE_URL}/weather?city=${city}`);
         if(!response.ok) throw new Error("City not found or API error");
         const data = await response.json();
         updateUI(data);
-        updateMap(data.city, data.country);
+        updateMap(data.lat || data.latitude, data.lon || data.longitude);
     } catch(error){
         alert(error.message);
     } finally {
@@ -208,7 +209,7 @@ async function fetchWeather(city){
 async function fetchWeatherByCoords(lat, lon){
     loading.style.display = 'block';
     try {
-        const response = await fetch(`http://127.0.0.1:8000/weather?lat=${lat}&lon=${lon}`);
+        const response = await fetch(`${BASE_URL}/weather?lat=${lat}&lon=${lon}`);
         if(!response.ok) throw new Error("Location not found or API error");
         const data = await response.json();
         updateUI(data);
@@ -253,7 +254,6 @@ function updateUI(data){
     if(data.alerts && data.alerts.length > 0){
         alertsContainer.innerHTML = '<h2>Weather Alerts</h2>';
         data.alerts.forEach(alert => {
-            // Determine alert type
             let type = 'info';
             if(alert.toLowerCase().includes('severe')) type = 'severe';
             else if(alert.toLowerCase().includes('warning')) type = 'warning';
